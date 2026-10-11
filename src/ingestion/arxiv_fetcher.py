@@ -14,8 +14,21 @@ def fetch_papers(search_query="machine learning", max_results=5):
         "sortOrder": "descending",
     }
 
-    response = requests.get(ARXIV_API_URL, params=params, timeout=30)
-    response.raise_for_status()
+    try:
+        response = requests.get(
+            ARXIV_API_URL,
+            params=params,
+            timeout=30,
+        )
+        response.raise_for_status()
+
+    except requests.exceptions.Timeout:
+        print("Error: arXiv API request timed out.")
+        return []
+
+    except requests.exceptions.RequestException as error:
+        print(f"Error fetching papers from arXiv: {error}")
+        return []
 
     feed = feedparser.parse(response.text)
 
