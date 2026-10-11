@@ -1,1 +1,3 @@
-# Dependencies will be added in the next approved step.
+requests
+feedparser
+python-dotenv
