@@ -36,12 +36,15 @@ def fetch_papers(search_query="machine learning", max_results=5):
 
     for entry in feed.entries:
         paper = {
-            "title": entry.title,
-            "authors": [author.name for author in entry.authors],
-            "summary": entry.summary,
-            "link": entry.link,
-            "published": entry.published,
+            "title": getattr(entry, "title", "No title available"),
+            "authors": [
+                author.name for author in getattr(entry, "authors", [])
+            ],
+            "summary": getattr(entry, "summary", "No summary available"),
+            "link": getattr(entry, "link", ""),
+            "published": getattr(entry, "published", ""),
         }
+
         papers.append(paper)
 
     return papers
