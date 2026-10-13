@@ -1,6 +1,8 @@
 
 from unittest.mock import Mock, patch
 
+import requests
+
 from src.ingestion.arxiv_fetcher import fetch_papers
 
 
@@ -38,10 +40,32 @@ def test_fetch_papers_success(mock_get):
 
 @patch("src.ingestion.arxiv_fetcher.requests.get")
 def test_fetch_papers_timeout(mock_get):
-    import requests
-
     mock_get.side_effect = requests.exceptions.Timeout
 
     papers = fetch_papers()
 
     assert papers == []
+
+
+@patch("src.ingestion.arxiv_fetcher.requests.get")
+def test_fetch_papers_missing_metadata(mock_get):
+    mock_response = Mock()
+    mock_response.raise_for_status.return_value = None
+    mock_response.text = """
+    <feed xmlns="http://www.w3.org/2005/Atom">
+        <entry>
+            <title>Paper Without Metadata</title>
+            <link href="https://example.com/paper" />
+        </entry>
+    </feed>
+    """
+    mock_get.return_value = mock_response
+
+    papers = fetch_papers(max_results=1)
+
+    assert len(papers) == 1
+    assert papers[0]["title"] == "Paper Without Metadata"
+    assert papers[0]["authors"] == []
+    assert papers[0]["summary"] == "No summary available"
+    assert papers[0]["link"] == "https://example.com/paper"
+    assert papers[0]["published"] == ""
