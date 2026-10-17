@@ -49,6 +49,7 @@ def create_papers_collection(client):
     )
 
     index_params = client.prepare_index_params()
+
     index_params.add_index(
         field_name="vector",
         index_type="AUTOINDEX",
@@ -65,17 +66,23 @@ def create_papers_collection(client):
 
 
 def store_paper(client, paper_id, title, summary, embedding):
-    """Store a research paper and its embedding."""
+    """Insert a paper or update its existing record using its ID."""
 
     if len(embedding) != VECTOR_DIMENSION:
         raise ValueError(
             f"Embedding must contain {VECTOR_DIMENSION} numbers."
         )
 
-    if not isinstance(paper_id, int):
+    if not isinstance(paper_id, int) or isinstance(paper_id, bool):
         raise TypeError("paper_id must be an integer.")
 
-    client.insert(
+    if not title:
+        title = "No title available"
+
+    if not summary:
+        summary = "No summary available"
+
+    client.upsert(
         collection_name=COLLECTION_NAME,
         data=[
             {
@@ -95,6 +102,9 @@ def search_similar_papers(client, embedding, limit=5):
         raise ValueError(
             f"Embedding must contain {VECTOR_DIMENSION} numbers."
         )
+
+    if limit < 1:
+        raise ValueError("limit must be at least 1.")
 
     client.load_collection(collection_name=COLLECTION_NAME)
 
