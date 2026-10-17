@@ -19,3 +19,5 @@ htmlcov/
 .idea/
 .DS_Store
 Thumbs.db
+
+scientific_papers.db/
