@@ -1,3 +1,6 @@
 requests
 feedparser
 python-dotenv
+pymilvus
+milvus-lite
+sentence-transformers
