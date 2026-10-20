@@ -2,6 +2,7 @@
 import hashlib
 
 from src.ingestion.arxiv_fetcher import fetch_papers
+from src.ingestion.pubmed_fetcher import fetch_pubmed_papers
 from src.utils.embedding_generator import generate_embedding
 from src.vector_store.milvus_store import (
     create_milvus_client,
@@ -35,13 +36,30 @@ def _paper_text(paper):
     return text
 
 
-def run_research_pipeline(search_query="machine learning", max_results=5):
-    """Fetch papers, store their embeddings, and search for similar papers."""
+def run_research_pipeline(
+    search_query="machine learning",
+    max_results=5,
+    source="arxiv",
+):
+    """Fetch, embed, store, and search research papers."""
 
-    papers = fetch_papers(
-        search_query=search_query,
-        max_results=max_results,
-    )
+    if source not in ("arxiv", "pubmed", "both"):
+        raise ValueError("source must be 'arxiv', 'pubmed', or 'both'.")
+
+    papers = []
+
+    if source in ("arxiv", "both"):
+        papers.extend(
+            fetch_papers(search_query=search_query, max_results=max_results)
+        )
+
+    if source in ("pubmed", "both"):
+        papers.extend(
+            fetch_pubmed_papers(
+                search_query=search_query,
+                max_results=max_results,
+            )
+        )
 
     if not papers:
         return {
@@ -54,13 +72,11 @@ def run_research_pipeline(search_query="machine learning", max_results=5):
 
     try:
         create_papers_collection(client)
-
         stored_count = 0
         first_embedding = None
 
         for paper in papers:
-            text = _paper_text(paper)
-            embedding = generate_embedding(text)
+            embedding = generate_embedding(_paper_text(paper))
 
             if first_embedding is None:
                 first_embedding = embedding
@@ -71,6 +87,12 @@ def run_research_pipeline(search_query="machine learning", max_results=5):
                 title=paper.get("title", "No title available"),
                 summary=paper.get("summary", "No summary available"),
                 embedding=embedding,
+                source=paper.get("source", "unknown"),
+                doi=paper.get("doi", ""),
+                published=paper.get("published", ""),
+                peer_review_status=paper.get(
+                    "peer_review_status", "unverified"
+                ),
             )
 
             stored_count += 1
@@ -85,6 +107,9 @@ def run_research_pipeline(search_query="machine learning", max_results=5):
             "papers_fetched": len(papers),
             "papers_stored": stored_count,
             "search_results": search_results,
+            "sources": sorted({
+                paper.get("source", "unknown") for paper in papers
+            }),
         }
 
     finally:
