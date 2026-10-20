@@ -2,7 +2,7 @@
 def generate_hypotheses(papers):
     """
     Generate basic research hypothesis suggestions
-    from research paper summaries.
+    while preserving their supporting literature evidence.
     """
     hypotheses = []
 
@@ -18,6 +18,10 @@ def generate_hypotheses(papers):
             "hypothesis": (
                 f"Further research could investigate: {summary[:200]}"
             ),
+            "evidence_summary": summary,
+            "source_link": paper.get("link", ""),
+            "source_id": paper.get("id"),
+            "similarity_score": paper.get("similarity_score"),
         })
 
     return hypotheses
