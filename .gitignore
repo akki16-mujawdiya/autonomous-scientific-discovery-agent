@@ -21,3 +21,6 @@ htmlcov/
 Thumbs.db
 
 scientific_papers.db/
+
+# Local research papers and test data
+data/
