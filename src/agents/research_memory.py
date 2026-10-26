@@ -30,7 +30,7 @@ def save_research_memory(
     metadata_json = json.dumps(metadata or {})
 
     with sqlite3.connect(path) as connection:
-        cursor = connection.execute(
+        connection.execute(
             """
             CREATE TABLE IF NOT EXISTS research_memories (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -76,13 +76,15 @@ def search_research_memory(
     sql = """
         SELECT id, content, memory_type, metadata
         FROM research_memories
-        WHERE content LIKE ?
+        WHERE content LIKE ? COLLATE NOCASE
     """
     parameters = [f"%{query.strip()}%"]
 
     if memory_type is not None:
+        if not isinstance(memory_type, str) or not memory_type.strip():
+            raise ValueError("memory_type must be a non-empty string")
         sql += " AND memory_type = ?"
-        parameters.append(memory_type)
+        parameters.append(memory_type.strip())
 
     sql += " ORDER BY id DESC LIMIT ?"
     parameters.append(limit)
@@ -99,3 +101,59 @@ def search_research_memory(
         }
         for row in rows
     ]
+
+
+def build_research_context(
+    query,
+    max_chars=4000,
+    limit=50,
+    db_path=DEFAULT_DB_PATH,
+):
+    """
+    Build a bounded context from matching saved research memories.
+
+    Newer matching memories are considered first. A memory is included
+    only if its formatted representation fits within max_chars.
+
+    This uses character limits as a simple approximation, not a
+    model-specific token counter.
+    """
+
+    if not isinstance(query, str) or not query.strip():
+        raise ValueError("query must be a non-empty string")
+
+    if (
+        not isinstance(max_chars, int)
+        or isinstance(max_chars, bool)
+        or max_chars < 1
+    ):
+        raise ValueError("max_chars must be a positive integer")
+
+    if not isinstance(limit, int) or isinstance(limit, bool) or limit < 1:
+        raise ValueError("limit must be at least 1")
+
+    memories = search_research_memory(
+        query=query,
+        limit=limit,
+        db_path=db_path,
+    )
+
+    selected = []
+    used_chars = 0
+
+    for memory in memories:
+        entry = (
+            f"[{memory['memory_type']} | ID: {memory['id']}]\n"
+            f"{memory['content']}"
+        )
+
+        separator = "\n\n" if selected else ""
+        required_chars = len(separator) + len(entry)
+
+        if used_chars + required_chars > max_chars:
+            continue
+
+        selected.append(entry)
+        used_chars += required_chars
+
+    return "\n\n".join(selected)
